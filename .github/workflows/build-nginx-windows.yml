@@ -75,7 +75,8 @@ jobs:
 
           $njsSource = Join-Path $buildRoot 'njs-1.0.1'
           $njsCompatHeader = Join-Path $njsSource 'src\njs_mingw_compat.h'
-          'typedef unsigned char u_char; typedef unsigned int u_int;' | Set-Content -NoNewline -Encoding ascii $njsCompatHeader
+          '#include <malloc.h>' | Set-Content -Encoding ascii $njsCompatHeader
+          'typedef unsigned char u_char; typedef unsigned int u_int;' | Add-Content -NoNewline -Encoding ascii $njsCompatHeader
           $njsTypesHeader = Join-Path $njsSource 'src\njs_types.h'
           $njsTypesText = [System.IO.File]::ReadAllText($njsTypesHeader)
           $njsPointerTypes = @'
@@ -110,6 +111,48 @@ jobs:
           $njsUnixPatched = $njsUnixText.Replace('extern char  **environ;', "#if !defined(_WIN32)`nextern char  **environ;`n#endif")
           if ($njsUnixPatched -eq $njsUnixText) { throw 'Could not guard the Unix environ declaration for MinGW.' }
           [System.IO.File]::WriteAllText($njsUnixHeader, $njsUnixPatched, [System.Text.UTF8Encoding]::new($false))
+          $njsMallocFile = Join-Path $njsSource 'src\njs_malloc.c'
+          $njsMallocText = [System.IO.File]::ReadAllText($njsMallocFile)
+          $njsMemalignPattern = '(?m)^#else\r?\n\r?\n#error no memalign\(\) implementation\.\r?\n\r?\n#endif'
+          $njsMemalignReplacement = @'
+          #elif defined(_WIN32)
+
+          void *
+          njs_memalign(size_t alignment, size_t size)
+          {
+              return _aligned_malloc(size, alignment);
+          }
+
+          #else
+
+          #error no memalign() implementation.
+
+          #endif
+          '@
+          $njsMallocPatched = [System.Text.RegularExpressions.Regex]::Replace($njsMallocText, $njsMemalignPattern, $njsMemalignReplacement.Trim())
+          if ($njsMallocPatched -eq $njsMallocText) { throw 'Could not add the MinGW aligned allocator to njs.' }
+          [System.IO.File]::WriteAllText($njsMallocFile, $njsMallocPatched, [System.Text.UTF8Encoding]::new($false))
+          $njsMallocHeader = Join-Path $njsSource 'src\njs_malloc.h'
+          $njsMallocHeaderText = [System.IO.File]::ReadAllText($njsMallocHeader)
+          $njsFreeMacroPattern = '(?m)^#define njs_free\(p\)[ \t]+free\(p\)$'
+          $njsFreeMacroReplacement = @'
+          #define njs_free(p)        free(p)
+          #if defined(_WIN32)
+          #define njs_memalign_free(p)  _aligned_free(p)
+          #else
+          #define njs_memalign_free(p)  njs_free(p)
+          #endif
+          '@
+          $njsMallocHeaderPatched = [System.Text.RegularExpressions.Regex]::Replace($njsMallocHeaderText, $njsFreeMacroPattern, $njsFreeMacroReplacement.Trim())
+          if ($njsMallocHeaderPatched -eq $njsMallocHeaderText) { throw 'Could not pair the njs aligned allocator with its Windows deallocator.' }
+          [System.IO.File]::WriteAllText($njsMallocHeader, $njsMallocHeaderPatched, [System.Text.UTF8Encoding]::new($false))
+          $njsMpFile = Join-Path $njsSource 'src\njs_mp.c'
+          $njsMpText = [System.IO.File]::ReadAllText($njsMpFile)
+          if ([System.Text.RegularExpressions.Regex]::Matches($njsMpText, 'njs_free\(p\);').Count -ne 3) {
+            throw 'Unexpected njs memory-pool free sites; refusing to change allocator release behavior.'
+          }
+          $njsMpPatched = [System.Text.RegularExpressions.Regex]::Replace($njsMpText, 'njs_free\(p\);', 'njs_memalign_free(p);')
+          [System.IO.File]::WriteAllText($njsMpFile, $njsMpPatched, [System.Text.UTF8Encoding]::new($false))
           $njsMakeConfig = Join-Path $njsSource 'nginx\config.make'
           $njsMakeText = [System.IO.File]::ReadAllText($njsMakeConfig)
           $njsMakePatched = $njsMakeText.Replace('CFLAGS="\$(CFLAGS)" CC="\$(CC)" ./configure', 'CFLAGS="\$(CFLAGS) -include src/njs_mingw_compat.h" CC="\$(CC)" ./configure')
