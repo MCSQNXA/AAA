@@ -71,9 +71,9 @@ jobs:
 
       - name: Configure and compile NGINX with statically built njs
         shell: msys2 {0}
-        working-directory: ${{ runner.temp }}\nginx-build\nginx-1.31.6
         run: |
           set -euo pipefail
+          cd "$(cygpath -u "$RUNNER_TEMP")/nginx-build/nginx-1.31.6"
           auto/configure \
             --with-cc=cl \
             --sbin-path=nginx.exe \
