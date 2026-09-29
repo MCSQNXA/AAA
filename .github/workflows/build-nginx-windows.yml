@@ -94,7 +94,9 @@ jobs:
         shell: msys2 {0}
         run: |
           set -euo pipefail
-          export PATH="/c/Strawberry/perl/bin:/c/Strawberry/perl/site/bin:$PATH"
+          msvc_bin="$(cygpath -u "$VCToolsInstallDir")/bin/HostX64/x64"
+          export PATH="$msvc_bin:/c/Strawberry/perl/bin:/c/Strawberry/perl/site/bin:$PATH"
+          printf 'linker=%s\n' "$(command -v link)"
           perl -V:osname -V:archname
           printf 'RUNNER_TEMP=%s\n' "$RUNNER_TEMP"
           build_root="$(cygpath -u "$RUNNER_TEMP")/nginx-build"
