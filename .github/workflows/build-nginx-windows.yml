@@ -1,6 +1,8 @@
 name: Build NGINX 1.31.6 for Windows with njs
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       publish_release:
@@ -215,7 +217,7 @@ jobs:
           Set-Content -NoNewline -Encoding ascii (Join-Path $env:RUNNER_TEMP 'SHA256SUMS.txt') "$sha  $(Split-Path $archive -Leaf)"
 
       - name: Publish verified build as a GitHub Release
-        if: ${{ inputs.publish_release }}
+        if: ${{ github.event_name == 'push' || inputs.publish_release }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
