@@ -103,7 +103,7 @@ jobs:
           fi
           cd "$(dirname "$nginx_configure")"
           printf 'Building from %s\n' "$PWD"
-          auto/configure \
+          ./configure \
             --with-cc=cl \
             --sbin-path=nginx.exe \
             --conf-path=conf/nginx.conf \
