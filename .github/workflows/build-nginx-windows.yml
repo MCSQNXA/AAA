@@ -42,7 +42,7 @@ jobs:
             @{ Name = 'nginx-1.31.6.tar.gz'; Uri = 'https://nginx.org/download/nginx-1.31.6.tar.gz' },
             @{ Name = 'njs-1.0.1.tar.gz'; Uri = 'https://github.com/nginx/njs/archive/refs/tags/1.0.1.tar.gz' },
             @{ Name = 'pcre2-10.48.tar.gz'; Uri = 'https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.48/pcre2-10.48.tar.gz' },
-            @{ Name = 'zlib-1.3.2.tar.gz'; Uri = 'https://zlib.net/fossils/zlib-1.3.2.tar.gz' },
+            @{ Name = 'zlib-1.3.2.tar.gz'; Uri = 'https://zlib.net/zlib-1.3.2.tar.gz' },
             @{ Name = 'openssl-3.5.8.tar.gz'; Uri = 'https://www.openssl.org/source/openssl-3.5.8.tar.gz' }
           )
 
