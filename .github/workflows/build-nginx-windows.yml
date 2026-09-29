@@ -77,8 +77,18 @@ jobs:
           $njsCompatHeader = Join-Path $njsSource 'src\njs_mingw_compat.h'
           @'
           #include <malloc.h>
+          #include <time.h>
           #ifndef getpagesize
           #define getpagesize() 4096
+          #endif
+          static inline struct tm *
+          njs_mingw_localtime_r(const time_t *timep, struct tm *result)
+          {
+              _tzset();
+              return localtime_s(result, timep) == 0 ? result : NULL;
+          }
+          #ifndef localtime_r
+          #define localtime_r(timep, result) njs_mingw_localtime_r((timep), (result))
           #endif
           typedef unsigned char u_char; typedef unsigned int u_int; typedef unsigned long u_long; typedef unsigned int uint;
           '@ | Set-Content -NoNewline -Encoding ascii $njsCompatHeader
@@ -116,6 +126,11 @@ jobs:
           $njsUnixPatched = $njsUnixText.Replace('extern char  **environ;', "#if !defined(_WIN32)`nextern char  **environ;`n#endif")
           if ($njsUnixPatched -eq $njsUnixText) { throw 'Could not guard the Unix environ declaration for MinGW.' }
           [System.IO.File]::WriteAllText($njsUnixHeader, $njsUnixPatched, [System.Text.UTF8Encoding]::new($false))
+          $njsDateFile = Join-Path $njsSource 'src\njs_date.c'
+          $njsDateText = [System.IO.File]::ReadAllText($njsDateFile)
+          $njsDatePatched = $njsDateText.Replace('#elif (NJS_HAVE_ALTZONE)', "#elif defined(_WIN32)`n`n#define njs_timezone(tm) (-(_timezone + (((tm)->tm_isdst > 0) ? _dstbias : 0)))`n`n#elif (NJS_HAVE_ALTZONE)")
+          if ($njsDatePatched -eq $njsDateText) { throw 'Could not add the Windows CRT timezone calculation to njs.' }
+          [System.IO.File]::WriteAllText($njsDateFile, $njsDatePatched, [System.Text.UTF8Encoding]::new($false))
           $njsMallocFile = Join-Path $njsSource 'src\njs_malloc.c'
           $njsMallocText = [System.IO.File]::ReadAllText($njsMallocFile)
           $njsMemalignPattern = '(?m)^#else\r?\n\r?\n#error no memalign\(\) implementation\.\r?\n\r?\n#endif'
