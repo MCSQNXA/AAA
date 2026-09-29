@@ -160,7 +160,7 @@ jobs:
           [System.IO.File]::WriteAllText($njsMpFile, $njsMpPatched, [System.Text.UTF8Encoding]::new($false))
           $njsMakeConfig = Join-Path $njsSource 'nginx\config.make'
           $njsMakeText = [System.IO.File]::ReadAllText($njsMakeConfig)
-          $njsMakePatched = $njsMakeText.Replace('CFLAGS="\$(CFLAGS)" CC="\$(CC)" ./configure', 'CFLAGS="\$(CFLAGS) -include src/njs_mingw_compat.h" CC="\$(CC)" ./configure')
+          $njsMakePatched = $njsMakeText.Replace('CFLAGS="\$(CFLAGS)" CC="\$(CC)" ./configure', 'CFLAGS="\$(CFLAGS) -Wno-error=maybe-uninitialized -include src/njs_mingw_compat.h" CC="\$(CC)" ./configure')
           if ($njsMakePatched -eq $njsMakeText) { throw 'Could not apply the MinGW u_char compatibility header to the njs engine build.' }
           [System.IO.File]::WriteAllText($njsMakeConfig, $njsMakePatched, [System.Text.UTF8Encoding]::new($false))
           $nginxRoot = Join-Path $buildRoot 'nginx-1.31.6'
