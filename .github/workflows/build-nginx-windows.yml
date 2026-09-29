@@ -53,8 +53,28 @@ jobs:
 
           foreach ($archive in $archives) {
             $destination = Join-Path $buildRoot $archive.Name
-            Invoke-WebRequest -Uri $archive.Uri -OutFile $destination
-            tar.exe -xzf $destination -C $buildRoot
+            $archiveReady = $false
+            for ($attempt = 1; $attempt -le 3; $attempt++) {
+              try {
+                Remove-Item -LiteralPath $destination -Force -ErrorAction SilentlyContinue
+                Invoke-WebRequest -Uri $archive.Uri -OutFile $destination
+                & tar.exe -tzf $destination *> $null
+                if ($LASTEXITCODE -ne 0) { throw 'Downloaded file is not a valid tar.gz archive.' }
+                if ($archive.Name -eq 'zlib-1.3.2.tar.gz') {
+                  $sha256 = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+                  if ($sha256 -ne 'bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16') {
+                    throw "zlib SHA-256 mismatch: $sha256"
+                  }
+                }
+                $archiveReady = $true
+                break
+              } catch {
+                if ($attempt -eq 3) { throw "Could not fetch a valid $($archive.Name): $($_.Exception.Message)" }
+                Start-Sleep -Seconds ($attempt * 3)
+              }
+            }
+            if (-not $archiveReady) { throw "Could not validate $($archive.Name)" }
+            & tar.exe -xzf $destination -C $buildRoot
             if ($LASTEXITCODE -ne 0) { throw "Could not extract $($archive.Name)" }
           }
 
