@@ -75,7 +75,40 @@ jobs:
 
           $njsSource = Join-Path $buildRoot 'njs-1.0.1'
           $njsCompatHeader = Join-Path $njsSource 'src\njs_mingw_compat.h'
-          'typedef unsigned char u_char;' | Set-Content -NoNewline -Encoding ascii $njsCompatHeader
+          'typedef unsigned char u_char; typedef unsigned int u_int;' | Set-Content -NoNewline -Encoding ascii $njsCompatHeader
+          $njsTypesHeader = Join-Path $njsSource 'src\njs_types.h'
+          $njsTypesText = [System.IO.File]::ReadAllText($njsTypesHeader)
+          $njsPointerTypes = @'
+          #if (__LP64__)
+          #define NJS_64BIT       1
+          #define NJS_PTR_SIZE    8
+          #else
+          #define NJS_64BIT       0
+          #define NJS_PTR_SIZE    4
+          #endif
+          '@
+          $njsPointerTypesPatched = @'
+          #ifndef NJS_PTR_SIZE
+          #if defined(_WIN64) || (__LP64__)
+          #define NJS_PTR_SIZE    8
+          #else
+          #define NJS_PTR_SIZE    4
+          #endif
+          #endif
+          #if (NJS_PTR_SIZE == 8)
+          #define NJS_64BIT       1
+          #else
+          #define NJS_64BIT       0
+          #endif
+          '@
+          $njsTypesPatched = $njsTypesText.Replace($njsPointerTypes.Trim(), $njsPointerTypesPatched.Trim())
+          if ($njsTypesPatched -eq $njsTypesText) { throw 'Could not patch the njs pointer-size detection for 64-bit MinGW.' }
+          [System.IO.File]::WriteAllText($njsTypesHeader, $njsTypesPatched, [System.Text.UTF8Encoding]::new($false))
+          $njsUnixHeader = Join-Path $njsSource 'src\njs_unix.h'
+          $njsUnixText = [System.IO.File]::ReadAllText($njsUnixHeader)
+          $njsUnixPatched = $njsUnixText.Replace('extern char  **environ;', "#if !defined(_WIN32)`nextern char  **environ;`n#endif")
+          if ($njsUnixPatched -eq $njsUnixText) { throw 'Could not guard the Unix environ declaration for MinGW.' }
+          [System.IO.File]::WriteAllText($njsUnixHeader, $njsUnixPatched, [System.Text.UTF8Encoding]::new($false))
           $njsMakeConfig = Join-Path $njsSource 'nginx\config.make'
           $njsMakeText = [System.IO.File]::ReadAllText($njsMakeConfig)
           $njsMakePatched = $njsMakeText.Replace('CFLAGS="\$(CFLAGS)" CC="\$(CC)" ./configure', 'CFLAGS="\$(CFLAGS) -include src/njs_mingw_compat.h" CC="\$(CC)" ./configure')
