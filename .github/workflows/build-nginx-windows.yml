@@ -73,7 +73,16 @@ jobs:
         shell: msys2 {0}
         run: |
           set -euo pipefail
-          cd "$(cygpath -u "$RUNNER_TEMP")/nginx-build/nginx-1.31.6"
+          printf 'RUNNER_TEMP=%s\n' "$RUNNER_TEMP"
+          build_root="$(cygpath -u "$RUNNER_TEMP")/nginx-build"
+          nginx_configure="$(find "$build_root" -type f -path '*/nginx-1.31.6/auto/configure' -print -quit)"
+          if [ -z "$nginx_configure" ]; then
+            printf 'Could not find NGINX auto/configure under %s\n' "$build_root"
+            find "$build_root" -maxdepth 3 -type d -print | head -n 40
+            exit 1
+          fi
+          cd "$(dirname "$(dirname "$nginx_configure")")"
+          printf 'Building from %s\n' "$PWD"
           auto/configure \
             --with-cc=cl \
             --sbin-path=nginx.exe \
