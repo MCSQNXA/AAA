@@ -101,7 +101,8 @@ jobs:
           #define NJS_64BIT       0
           #endif
           '@
-          $njsTypesPatched = $njsTypesText.Replace($njsPointerTypes.Trim(), $njsPointerTypesPatched.Trim())
+          $njsPointerTypesPattern = '(?m)^#if \(__LP64__\)\r?\n#define NJS_64BIT[ \t]+1\r?\n#define NJS_PTR_SIZE[ \t]+8\r?\n#else\r?\n#define NJS_64BIT[ \t]+0\r?\n#define NJS_PTR_SIZE[ \t]+4\r?\n#endif'
+          $njsTypesPatched = [System.Text.RegularExpressions.Regex]::Replace($njsTypesText, $njsPointerTypesPattern, $njsPointerTypesPatched.Trim())
           if ($njsTypesPatched -eq $njsTypesText) { throw 'Could not patch the njs pointer-size detection for 64-bit MinGW.' }
           [System.IO.File]::WriteAllText($njsTypesHeader, $njsTypesPatched, [System.Text.UTF8Encoding]::new($false))
           $njsUnixHeader = Join-Path $njsSource 'src\njs_unix.h'
