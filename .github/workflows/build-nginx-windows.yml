@@ -76,7 +76,7 @@ jobs:
           $njsSource = Join-Path $buildRoot 'njs-1.0.1'
           $njsCompatHeader = Join-Path $njsSource 'src\njs_mingw_compat.h'
           '#include <malloc.h>' | Set-Content -Encoding ascii $njsCompatHeader
-          'typedef unsigned char u_char; typedef unsigned int u_int;' | Add-Content -NoNewline -Encoding ascii $njsCompatHeader
+          'typedef unsigned char u_char; typedef unsigned int u_int; typedef unsigned long u_long;' | Add-Content -NoNewline -Encoding ascii $njsCompatHeader
           $njsTypesHeader = Join-Path $njsSource 'src\njs_types.h'
           $njsTypesText = [System.IO.File]::ReadAllText($njsTypesHeader)
           $njsPointerTypes = @'
@@ -203,6 +203,7 @@ jobs:
             --with-openssl-opt=no-asm \
             --with-http_ssl_module \
             --add-module=../njs-1.0.1/nginx
+          make -f objs/Makefile '../njs-1.0.1/nginx/../build/libnjs.a'
           make -j2
 
       - name: Verify NGINX version and njs HTTP directives at runtime
